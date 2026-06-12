@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Trello 未リアクション・未返信 ダッシュボード | 大真エンジニアリング</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Hiragino Sans', 'Meiryo', 'Yu Gothic', sans-serif;
+    margin: 0;
+    background: #f0f4f8;
+    color: #222;
+    line-height: 1.6;
+  }
+  header {
+    background: linear-gradient(135deg, #1a4d8f 0%, #2563a8 100%);
+    color: white;
+    padding: 18px 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  header h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+  }
+  header .subtitle {
+    margin: 4px 0 0 0;
+    font-size: 12px;
+    opacity: 0.85;
+  }
+  .container {
+    max-width: 1280px;
+    margin: 20px auto;
+    padding: 0 16px;
+  }
+  .controls {
+    background: white;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+  .controls label {
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .controls select,
+  .controls button {
+    padding: 8px 14px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+  }
+  .controls button.primary {
+    background: #1a4d8f;
+    color: white;
+    border-color: #1a4d8f;
+    font-weight: 500;
+  }
+  .controls button.primary:hover {
+    background: #154072;
+  }
+  .controls button.primary:disabled {
+    background: #999;
+    cursor: not-allowed;
+  }
+  .stats {
+    background: white;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .stat-card {
+    padding: 12px 16px;
+    border-radius: 8px;
+    text-align: center;
+  }
+  .stat-card.urgent {
+    background: #fee2e2;
+    border-left: 4px solid #dc2626;
+  }
+  .stat-card.warning {
+    background: #fef3c7;
+    border-left: 4px solid #d97706;
+  }
+  .stat-card.normal {
+    background: #d1fae5;
+    border-left: 4px solid #059669;
+  }
+  .stat-card.total {
+    background: #e0e7ff;
+    border-left: 4px solid #4f46e5;
+  }
+  .stat-card .label {
+    font-size: 11px;
+    color: #555;
+    margin-bottom: 4px;
+  }
+  .stat-card .num {
+    font-size: 26px;
+    font-weight: 700;
+  }
+  .progress-area {
+    background: white;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    font-size: 13px;
+    color: #555;
+    display: none;
+  }
+  .progress-area.active { display: block; }
+  .progress-bar {
+    width: 100%;
+    height: 6px;
+    background: #eee;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .progress-bar > div {
+    height: 100%;
+    background: #1a4d8f;
+    width: 0;
+    transition: width 0.3s;
+  }
+  .section {
+    margin-bottom: 24px;
+  }
+  .section h2 {
+    font-size: 16px;
+    margin: 0 0 12px 0;
+    padding: 8px 14px;
+    color: white;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .section.urgent h2 { background: #dc2626; }
+  .section.warning h2 { background: #d97706; }
+  .section.normal h2 { background: #059669; }
+  .card {
+    background: white;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border-left: 4px solid #ccc;
+  }
+  .card.urgent { border-left-color: #dc2626; }
+  .card.warning { border-left-color: #d97706; }
+  .card.normal { border-left-color: #059669; }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .card-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #1a4d8f;
+    flex: 1;
+    min-width: 200px;
+  }
+  .card-board {
+    font-size: 11px;
+    color: #555;
+    background: #eef;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+  .comment {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    font-size: 13px;
+  }
+  .comment-meta {
+    display: flex;
+    justify-content: space-between;
+    color: #666;
+    font-size: 11px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .comment-author {
+    font-weight: 600;
+    color: #333;
+  }
+  .comment-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #222;
+    line-height: 1.5;
+  }
+  .comment-mention {
+    color: #1a4d8f;
+    font-weight: 600;
+    background: #dbeafe;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .card-actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .card-actions a {
+    font-size: 12px;
+    padding: 6px 12px;
+    background: #1a4d8f;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: 500;
+  }
+  .card-actions a:hover {
+    background: #154072;
+  }
+  .elapsed-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .elapsed-badge.urgent {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+  .elapsed-badge.warning {
+    background: #fef3c7;
+    color: #d97706;
+  }
+  .elapsed-badge.normal {
+    background: #d1fae5;
+    color: #059669;
+  }
+  .empty-message {
+    background: white;
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+  }
+  .error {
+    background: #fee2e2;
+    border: 1px solid #dc2626;
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: #991b1b;
+    margin-bottom: 16px;
+  }
+  .info-note {
+    background: #eff6ff;
+    border-left: 4px solid #2563eb;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #1e3a8a;
+  }
+  footer {
+    text-align: center;
+    padding: 24px;
+    color: #777;
+    font-size: 12px;
+  }
+/* クイックフィルタボタン */
+.quick-filter-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: #fff;
+  color: #333;
+  border: 1px solid #c8d4e8;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.quick-filter-btn:hover {
+  background: #e8f0fa;
+  border-color: #1a4d8f;
+}
+.quick-filter-btn:active {
+  background: #1a4d8f;
+  color: #fff;
+}
+
+/* ボードチェックボックスラベル */
+.board-checkbox-label:hover {
+  background: #f0f4fa;
+}
+.board-checkbox-label.drag-hover {
+  background: #ffe9a8;
+  outline: 2px dashed #e8a200;
+}
+
+/* ========== モバイル対応（〜640px） ========== */
+@media (max-width: 640px) {
+  body {
+    padding: 10px;
+    font-size: 14px;
+  }
+  header {
+    padding: 14px 16px !important;
+    margin-bottom: 12px !important;
+  }
+  h1 {
+    font-size: 17px !important;
+    line-height: 1.4 !important;
+  }
+  .subtitle {
+    font-size: 11px !important;
+  }
+  .controls {
+    padding: 12px 14px !important;
+    gap: 10px !important;
+  }
+  .controls label {
+    font-size: 12px !important;
+  }
+  .controls select,
+  .controls button {
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    min-height: 40px;
+  }
+  .controls button.primary {
+    width: 100%;
+  }
+  /* ボードチェックボックス：タップしやすく */
+  .board-checkbox-label {
+    font-size: 13px !important;
+    padding: 8px 10px !important;
+    min-height: 38px;
+    border: 1px solid #e0e0e0;
+    background: #fff;
+    flex: 1 1 calc(50% - 4px);
+    margin: 2px 0;
+  }
+  .board-checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 6px;
+  }
+  /* クイックフィルタボタン：縦並びで大きく */
+  .quick-filter-btn {
+    padding: 10px 12px !important;
+    font-size: 12px !important;
+    min-height: 36px;
+    flex: 1 1 calc(50% - 4px);
+  }
+  /* ログイン画面 */
+  #login-screen {
+    padding: 16px !important;
+  }
+  #login-screen h2 {
+    font-size: 16px !important;
+  }
+  #login-screen input[type="text"],
+  #login-screen input[type="password"] {
+    font-size: 16px !important; /* iOS Safari ズーム防止 */
+    padding: 12px !important;
+  }
+  #login-screen button {
+    width: 100%;
+    padding: 14px !important;
+    font-size: 15px !important;
+    min-height: 48px;
+  }
+  /* 結果カード */
+  .item-card {
+    padding: 12px !important;
+    font-size: 13px !important;
+  }
+  .item-card .meta {
+    font-size: 11px !important;
+  }
+  /* スキャン結果のセクション見出し */
+  .section-title {
+    font-size: 14px !important;
+  }
+  /* テーブル：横スクロール許可 */
+  table {
+    font-size: 12px !important;
+  }
+  /* フッター */
+  footer {
+    font-size: 10px !important;
+    padding: 10px !important;
+  }
+}
+
+/* タッチデバイス全般：選択時のハイライト強化 */
+@media (hover: none) and (pointer: coarse) {
+  .board-checkbox-label {
+    -webkit-tap-highlight-color: rgba(26, 77, 143, 0.15);
+  }
+  .board-checkbox-label:active {
+    background: #e0ecfa;
+    transform: scale(0.98);
+  }
+  .quick-filter-btn:active {
+    transform: scale(0.96);
+  }
+}
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 Trello 未リアクション・未返信 ダッシュボード</h1>
+  <div class="subtitle">大真エンジニアリング株式会社 <span style="opacity:0.7;font-size:13px;">／ 社員配布用（モバイル対応）</span></div>
+</header>
+
+<div class="container">
+
+  <!-- ログイン画面 -->
+  <div id="login-screen" style="background:white;border-radius:10px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.08);margin-bottom:16px;">
+    <h2 style="margin-top:0;font-size:18px;color:#1a4d8f;">🔐 Trello認証情報の入力<span style="font-size:12px;color:#888;font-weight:normal;margin-left:8px;">（社員配布用）</span></h2>
+    <p style="font-size:13px;color:#555;line-height:1.7;">
+      このダッシュボードを使うには、<strong>あなた自身のTrelloトークン</strong>が必要です。<br>
+      <strong>※APIキーは会社共通のものが既に入力済み。トークンだけ各自で取得してください。</strong><br>
+      <strong>※入力したトークンはあなたのブラウザ内にのみ保存され、外部に送信されません。</strong>
+    </p>
+    
+    <div style="background:#f8f9fa;border-radius:6px;padding:14px 18px;margin:14px 0;font-size:13px;">
+      <strong style="color:#1a4d8f;">📝 トークンの取得手順（1〜2分で完了）</strong>
+      <ol style="margin:8px 0 0 0;padding-left:20px;line-height:1.8;">
+        <li>下のリンクをクリック（Trelloログイン状態で）<br>
+            <a href="https://trello.com/1/authorize?expiration=never&name=DaisinTrelloDashboard&scope=read&response_type=token&key=399f22453baf64bcbf1f6e72bf5f4d18" target="_blank" rel="noopener" style="color:#1a4d8f;font-weight:bold;">▶ ここをクリックしてトークンを取得</a></li>
+        <li>表示された画面で「<strong>Allow</strong>」または「<strong>許可</strong>」ボタンをクリック</li>
+        <li>表示された<strong>長い文字列のトークン</strong>を全選択（Ctrl+A）→ コピー（Ctrl+C）</li>
+        <li>下の「トークン」欄に貼り付け（Ctrl+V）</li>
+        <li>「<strong>保存して開始</strong>」をクリック</li>
+      </ol>
+      <p style="margin:10px 0 0 0;font-size:11px;color:#666;">
+        💡 一度入力したトークンはブラウザに記憶されるので、次回からは入力不要です。
+      </p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:600px;">
+      <label style="font-size:13px;font-weight:500;">
+        APIキー（32文字）：
+        <input type="text" id="login-api-key" placeholder="例: 399f22453baf64bcbf1f6e72bf5f4d18" 
+               value="399f22453baf64bcbf1f6e72bf5f4d18"
+               style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #ccc;border-radius:6px;margin-top:4px;font-family:monospace;">
+      </label>
+      <label style="font-size:13px;font-weight:500;">
+        トークン（長い英数字）：
+        <input type="password" id="login-token" placeholder="例: ATTAc66bee099dfb..."
+               style="width:100%;padding:8px 12px;font-size:13px;border:1px solid #ccc;border-radius:6px;margin-top:4px;font-family:monospace;">
+        <span style="font-size:11px;color:#666;display:block;margin-top:4px;">
+          <input type="checkbox" id="show-token" style="vertical-align:middle;"> 表示する
+        </span>
+      </label>
+      <label style="font-size:12px;color:#555;">
+        <input type="checkbox" id="remember-credentials" checked style="vertical-align:middle;">
+        このブラウザに記憶する（次回以降の入力を省略）
+      </label>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button id="login-btn" class="primary" style="padding:10px 24px;font-size:14px;border:none;border-radius:6px;background:#1a4d8f;color:white;cursor:pointer;font-weight:500;">保存して開始</button>
+      </div>
+      <div id="login-error" style="display:none;background:#fee2e2;border:1px solid #dc2626;border-radius:6px;padding:8px 12px;color:#991b1b;font-size:13px;"></div>
+    </div>
+  </div>
+
+  <!-- ダッシュボード本体（ログイン後に表示） -->
+  <div id="dashboard-main" style="display:none;">
+
+  <div class="info-note">
+    💡 このダッシュボードは、対象ワークスペース（業務管理 / 協力企業×大真Eng）内の全ボード・全リストのカードのコメントを調べ、<strong>自分が①絵文字リアクション ②返信コメント のどちらもしていない</strong>コメントを表示します。
+    <div style="float:right;">
+      <span id="logged-in-user" style="font-size:12px;color:#666;"></span>
+      <button id="logout-btn" style="font-size:11px;padding:3px 10px;border:1px solid #ccc;border-radius:4px;background:white;cursor:pointer;margin-left:8px;">ログアウト</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <label>表示モード：</label>
+    <select id="mode-select">
+      <option value="me">自分宛のみ（@メンション・カードメンバー）</option>
+      <option value="all">全メンバー（チーム全体）</option>
+    </select>
+
+    <label style="margin-left:20px;">期間：</label>
+    <select id="period-select">
+      <option value="0">すべて</option>
+      <option value="7" selected>直近7日</option>
+      <option value="14">直近14日</option>
+      <option value="30">直近30日</option>
+    </select>
+
+    <button id="run-btn" class="primary">📋 ボード一覧を読み込む</button>
+    <button id="clear-btn">クリア</button>
+  </div>
+
+  <div id="board-filter-area" class="controls" style="display:none;flex-direction:column;align-items:stretch;gap:10px;">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <label style="font-weight:bold;">ボード絞り込み：</label>
+      <span style="font-size:11px;color:#666;">💡 PCはドラッグで一気に選択/解除 / スマホは長押し+スライドで選択</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:6px;background:#f7f9fc;border-radius:4px;">
+      <span style="font-size:11px;color:#555;align-self:center;margin-right:4px;">クイックフィルタ：</span>
+      <button class="quick-filter-btn" data-filter="all">✅ 全選択</button>
+      <button class="quick-filter-btn" data-filter="none">❌ 全解除</button>
+      <button class="quick-filter-btn" data-filter="business-cases">🎯 業務案件のみ</button>
+      <button class="quick-filter-btn" data-filter="exclude-personal">👥 個人ボード除外</button>
+      <button class="quick-filter-btn" data-filter="partners-only">🤝 協力企業のみ</button>
+      <button class="quick-filter-btn" data-filter="workspace-business">🏢 業務管理のみ</button>
+      <button class="quick-filter-btn" data-filter="invert">🔄 反転</button>
+    </div>
+    <div id="board-filter-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;user-select:none;"></div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button id="apply-filter-btn" class="primary">▶️ フィルタ適用（スキャン実行）</button>
+      <span id="selected-count" style="font-size:12px;color:#555;"></span>
+    </div>
+  </div>
+
+  <div id="progress-area" class="progress-area">
+    <div id="progress-text">準備中...</div>
+    <div class="progress-bar"><div id="progress-bar-inner"></div></div>
+  </div>
+
+  <div id="error-area"></div>
+
+  <div id="stats-area" class="stats" style="display:none;">
+    <div class="stat-card urgent">
+      <div class="label">🔴 緊急（3日超）</div>
+      <div class="num" id="stat-urgent">0</div>
+    </div>
+    <div class="stat-card warning">
+      <div class="label">🟡 注意（1〜3日）</div>
+      <div class="num" id="stat-warning">0</div>
+    </div>
+    <div class="stat-card normal">
+      <div class="label">🟢 通常（24時間以内）</div>
+      <div class="num" id="stat-normal">0</div>
+    </div>
+    <div class="stat-card total">
+      <div class="label">📊 合計</div>
+      <div class="num" id="stat-total">0</div>
+    </div>
+  </div>
+
+  <div id="result-area"></div>
+
+  </div><!-- /dashboard-main -->
+
+</div>
+
+<footer>
+  大真エンジニアリング株式会社 / 内部利用ツール
+</footer>
+
+<script>
+// ========== 設定 ==========
+const BASE = 'https://api.trello.com/1';
+const STORAGE_KEY = 'trello_dashboard_credentials';
+
+// 認証情報の管理（実行時に決定）
+let API_KEY = '';
+let TOKEN = '';
+let AUTH = '';
+
+function setCredentials(apiKey, token) {
+  API_KEY = apiKey;
+  TOKEN = token;
+  AUTH = `key=${API_KEY}&token=${TOKEN}`;
+}
+
+function saveCredentials(apiKey, token) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ apiKey, token }));
+  } catch (e) {
+    console.warn('localStorage保存失敗:', e);
+  }
+}
+
+function loadCredentials() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (!data) return null;
+    return JSON.parse(data);
+  } catch (e) {
+    return null;
+  }
+}
+
+function clearCredentials() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {}
+  API_KEY = '';
+  TOKEN = '';
+  AUTH = '';
+}
+
+function showLoginScreen() {
+  document.getElementById('login-screen').style.display = 'block';
+  document.getElementById('dashboard-main').style.display = 'none';
+}
+
+function showDashboard(userInfo) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard-main').style.display = 'block';
+  if (userInfo) {
+    document.getElementById('logged-in-user').textContent = `👤 ${userInfo.fullName} (@${userInfo.username})`;
+  }
+}
+
+async function tryLoginWithStoredCredentials() {
+  const stored = loadCredentials();
+  if (!stored || !stored.apiKey || !stored.token) {
+    showLoginScreen();
+    return;
+  }
+  setCredentials(stored.apiKey, stored.token);
+  try {
+    const me = await trelloFetch('/members/me', { fields: 'id,username,fullName' });
+    showDashboard(me);
+  } catch (e) {
+    // 保存された認証情報が無効
+    clearCredentials();
+    showLoginScreen();
+    document.getElementById('login-error').textContent = '保存された認証情報が無効になっていました。再入力してください。';
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
+
+async function handleLogin() {
+  const apiKey = document.getElementById('login-api-key').value.trim();
+  const token = document.getElementById('login-token').value.trim();
+  const remember = document.getElementById('remember-credentials').checked;
+  const errorEl = document.getElementById('login-error');
+
+  errorEl.style.display = 'none';
+
+  if (!apiKey || !token) {
+    errorEl.textContent = 'APIキーとトークンの両方を入力してください';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  if (apiKey.length < 30 || apiKey.length > 40) {
+    errorEl.textContent = 'APIキーの長さが正しくありません（通常32文字）';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  // 認証テスト
+  setCredentials(apiKey, token);
+  try {
+    const me = await trelloFetch('/members/me', { fields: 'id,username,fullName' });
+    if (remember) saveCredentials(apiKey, token);
+    showDashboard(me);
+  } catch (e) {
+    clearCredentials();
+    errorEl.textContent = `認証に失敗しました: ${e.message}`;
+    errorEl.style.display = 'block';
+  }
+}
+
+function handleLogout() {
+  if (!confirm('保存されたAPIキーとトークンを削除してログアウトしますか？')) return;
+  clearCredentials();
+  document.getElementById('login-api-key').value = '';
+  document.getElementById('login-token').value = '';
+  // 結果クリア
+  document.getElementById('result-area').innerHTML = '';
+  document.getElementById('stats-area').style.display = 'none';
+  document.getElementById('board-filter-area').style.display = 'none';
+  showLoginScreen();
+}
+
+// 対象ワークスペース名（部分一致でマッチ）
+const TARGET_WORKSPACE_NAMES = ['業務管理', '協力企業'];
+
+
+// ========== ボードフィルター ==========
+function getCheckedBoardIds() {
+  const checkboxes = document.querySelectorAll('#board-filter-checkboxes input[type="checkbox"]');
+  if (checkboxes.length === 0) return null;
+  return Array.from(checkboxes).filter(c => c.checked).map(c => c.value);
+}
+
+function renderBoardFilter(allBoards, selectedIds) {
+  const area = document.getElementById('board-filter-area');
+  const container = document.getElementById('board-filter-checkboxes');
+  
+  // ワークスペースごとにグループ化
+  const byWorkspace = {};
+  allBoards.forEach(b => {
+    if (!byWorkspace[b.workspaceName]) byWorkspace[b.workspaceName] = [];
+    byWorkspace[b.workspaceName].push(b);
+  });
+  
+  let html = '';
+  for (const wsName in byWorkspace) {
+    html += `<div style="display:flex;flex-direction:column;gap:4px;border:1px solid #ddd;border-radius:6px;padding:8px 12px;min-width:240px;">`;
+    html += `<div style="font-weight:600;font-size:12px;color:#1a4d8f;border-bottom:1px solid #eee;padding-bottom:4px;margin-bottom:4px;">${escapeHtml(wsName)}</div>`;
+    byWorkspace[wsName].forEach(b => {
+      const checked = selectedIds.includes(b.id) ? 'checked' : '';
+      html += `<label class="board-checkbox-label" data-workspace="${escapeHtml(wsName)}" data-board-name="${escapeHtml(b.name)}" style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;padding:2px 4px;border-radius:3px;"><input type="checkbox" value="${b.id}" ${checked}>${escapeHtml(b.name)}</label>`;
+    });
+    html += `</div>`;
+  }
+  container.innerHTML = html;
+  area.style.display = 'flex';
+  // 選択カウント更新
+  if (typeof updateSelectedCount === 'function') {
+    updateSelectedCount();
+  }
+}
+
+// ========== ユーティリティ ==========
+async function trelloFetch(path, params = {}) {
+  const sep = path.includes('?') ? '&' : '?';
+  const q = new URLSearchParams(params).toString();
+  const url = `${BASE}${path}${sep}${AUTH}${q ? '&' + q : ''}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Trello API ${res.status}: ${text.substring(0, 100)}`);
+  }
+  return res.json();
+}
+
+function getElapsedInfo(isoDate) {
+  const past = new Date(isoDate);
+  const now = new Date();
+  const diffMs = now - past;
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const diffDays = diffHours / 24;
+
+  let level, label;
+  if (diffDays > 3) {
+    level = 'urgent';
+    label = `${Math.floor(diffDays)}日経過`;
+  } else if (diffDays > 1) {
+    level = 'warning';
+    label = `${Math.floor(diffDays)}日${Math.floor(diffHours % 24)}時間経過`;
+  } else if (diffHours > 1) {
+    level = 'normal';
+    label = `${Math.floor(diffHours)}時間経過`;
+  } else {
+    level = 'normal';
+    label = `${Math.floor(diffMs / (1000 * 60))}分経過`;
+  }
+  return { level, label, diffMs };
+}
+
+function formatDateJP(isoDate) {
+  const d = new Date(isoDate);
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function highlightMentions(text, myUsername) {
+  const escaped = escapeHtml(text);
+  return escaped.replace(/@(\w+)/g, (match, user) => {
+    const isMe = myUsername && user.toLowerCase() === myUsername.toLowerCase();
+    return `<span class="comment-mention" style="${isMe ? 'background:#fef08a;':''}">${match}</span>`;
+  });
+}
+
+// ========== UI操作 ==========
+const progressArea = document.getElementById('progress-area');
+const progressText = document.getElementById('progress-text');
+const progressBarInner = document.getElementById('progress-bar-inner');
+const errorArea = document.getElementById('error-area');
+const statsArea = document.getElementById('stats-area');
+const resultArea = document.getElementById('result-area');
+const runBtn = document.getElementById('run-btn');
+const clearBtn = document.getElementById('clear-btn');
+
+function setProgress(text, pct) {
+  progressArea.classList.add('active');
+  progressText.textContent = text;
+  if (pct !== undefined) {
+    progressBarInner.style.width = `${Math.min(100, pct)}%`;
+  }
+}
+
+function hideProgress() {
+  progressArea.classList.remove('active');
+}
+
+function showError(msg) {
+  errorArea.innerHTML = `<div class="error">⚠️ エラー: ${escapeHtml(msg)}</div>`;
+}
+
+function clearAll() {
+  errorArea.innerHTML = '';
+  resultArea.innerHTML = '';
+  statsArea.style.display = 'none';
+  hideProgress();
+}
+
+// ========== メインロジック ==========
+
+// ボード一覧キャッシュ（loadBoardsで取得→scanで使用）
+let cachedBoards = null;
+
+// Step 1: ボード一覧だけ読み込んでフィルタUIを表示
+async function loadBoards() {
+  clearAll();
+  runBtn.disabled = true;
+  runBtn.textContent = '⏳ ボード一覧を読み込み中...';
+
+  try {
+    // 自分の情報を取得
+    setProgress('自分のアカウント情報を取得中...', 20);
+    const me = await trelloFetch('/members/me', { fields: 'id,username,fullName' });
+
+    // ワークスペース一覧取得
+    setProgress(`ワークスペース一覧を取得中... (${me.fullName})`, 40);
+    const allWorkspaces = await trelloFetch('/members/me/organizations', { fields: 'displayName,name,id' });
+    const targetWorkspaces = allWorkspaces.filter(ws =>
+      TARGET_WORKSPACE_NAMES.some(k => (ws.displayName && ws.displayName.includes(k)) || (ws.name && ws.name.includes(k)))
+    );
+
+    if (targetWorkspaces.length === 0) {
+      throw new Error('対象ワークスペース（業務管理 / 協力企業）が見つかりません');
+    }
+
+    setProgress(`対象ワークスペース: ${targetWorkspaces.length}件 (${targetWorkspaces.map(w => w.displayName).join(', ')})`, 60);
+
+    // 各ワークスペースのボードを取得
+    let allBoards = [];
+    for (let i = 0; i < targetWorkspaces.length; i++) {
+      const ws = targetWorkspaces[i];
+      const boards = await trelloFetch(`/organizations/${ws.id}/boards`, { fields: 'name,id,closed' });
+      boards.forEach(b => { b.workspaceName = ws.displayName; });
+      allBoards.push(...boards.filter(b => !b.closed));
+    }
+
+    if (allBoards.length === 0) {
+      throw new Error('対象ワークスペースにボードがありません');
+    }
+
+    // ボード一覧をキャッシュ
+    cachedBoards = allBoards;
+    // 自分の情報もキャッシュ（scanで使う）
+    cachedBoards._me = me;
+
+    // 前回チェック状態を復元（あれば）。初回は全選択
+    const checkedBoardIds = getCheckedBoardIds();
+    const selectedIds = (checkedBoardIds && checkedBoardIds.length > 0)
+      ? checkedBoardIds
+      : allBoards.map(b => b.id);
+
+    // ボードフィルタUIを表示
+    renderBoardFilter(allBoards, selectedIds);
+
+    setProgress(`ボード一覧の読み込み完了：全${allBoards.length}件。スキャンするボードを選んで「フィルタ適用」を押してください。`, 100);
+    setTimeout(hideProgress, 3000);
+
+    // スキャン開始ボタンを「再読込」表示にする
+    runBtn.textContent = '🔄 ボード一覧を再読込';
+    runBtn.disabled = false;
+
+  } catch (e) {
+    showError(`ボード一覧の読み込みに失敗しました: ${e.message}`);
+    runBtn.textContent = '📋 ボード一覧を読み込む';
+    runBtn.disabled = false;
+    hideProgress();
+  }
+}
+
+// Step 2: 選択されたボードのカードをスキャン（実本処理）
+async function scan() {
+  // ボード一覧未取得の場合は先に読み込み
+  if (!cachedBoards) {
+    showError('先に「📋 ボード一覧を読み込む」を実行してください。');
+    return;
+  }
+
+  // スキャン開始時点で結果領域だけクリア（フィルタは残す）
+  document.getElementById('result-area').innerHTML = '';
+  document.getElementById('error-area').innerHTML = '';
+  document.getElementById('stats-area').style.display = 'none';
+
+  const applyBtn = document.getElementById('apply-filter-btn');
+  applyBtn.disabled = true;
+  applyBtn.textContent = '⏳ スキャン中...';
+  runBtn.disabled = true;
+
+  try {
+    const mode = document.getElementById('mode-select').value; // 'me' or 'all'
+    const periodDays = parseInt(document.getElementById('period-select').value, 10);
+
+    const me = cachedBoards._me;
+    const myId = me.id;
+    const myUsername = me.username;
+    const allBoards = cachedBoards;
+
+    // チェック状態に基づいて対象ボードを絞り込み
+    const checkedBoardIds = getCheckedBoardIds();
+    const targetBoards = checkedBoardIds && checkedBoardIds.length > 0
+      ? allBoards.filter(b => checkedBoardIds.includes(b.id))
+      : [];
+
+    if (targetBoards.length === 0) {
+      throw new Error('スキャン対象のボードが選択されていません。最低1つはチェックしてください。');
+    }
+
+    setProgress(`対象ボード: ${targetBoards.length}件 / 全${allBoards.length}件`, 15);
+
+
+    // 各ボードからカードを取得
+    const allCards = [];
+    for (let i = 0; i < targetBoards.length; i++) {
+      const board = targetBoards[i];
+      setProgress(`ボード "${board.name}" のカードを取得中... (${i+1}/${targetBoards.length})`, 15 + (i / targetBoards.length) * 20);
+      const cards = await trelloFetch(`/boards/${board.id}/cards`, {
+        fields: 'name,shortUrl,idList,idMembers,dateLastActivity',
+        filter: 'open'
+      });
+      cards.forEach(c => {
+        c.boardName = board.name;
+        c.boardId = board.id;
+        c.workspaceName = board.workspaceName;
+      });
+      allCards.push(...cards);
+    }
+
+    setProgress(`全ボードのカード合計: ${allCards.length}件`, 35);
+
+    // 期間フィルタ（カードの最終アクティビティで一次フィルタ）
+    const cutoffMs = periodDays > 0 ? Date.now() - periodDays * 24 * 60 * 60 * 1000 : 0;
+    const filteredCards = periodDays > 0
+      ? allCards.filter(c => new Date(c.dateLastActivity).getTime() > cutoffMs)
+      : allCards;
+
+    setProgress(`期間フィルタ後: ${filteredCards.length}件のカードを精査します`, 40);
+
+    // 各カードのコメント＋リアクションを取得して未対応を抽出
+    const unreacted = [];
+    for (let i = 0; i < filteredCards.length; i++) {
+      const card = filteredCards[i];
+      setProgress(`カードを精査中: ${card.name.substring(0, 30)} (${i+1}/${filteredCards.length})`, 40 + (i / filteredCards.length) * 55);
+
+      // コメント取得
+      const comments = await trelloFetch(`/cards/${card.id}/actions`, {
+        filter: 'commentCard',
+        limit: 50
+      });
+
+      for (const comment of comments) {
+        if (!comment.data || !comment.data.text) continue;
+
+        const commentDate = new Date(comment.date);
+        if (periodDays > 0 && commentDate.getTime() < cutoffMs) continue;
+
+        const text = comment.data.text;
+        const authorId = comment.idMemberCreator;
+
+        // モード判定
+        let shouldShow = false;
+        let reason = '';
+
+        if (mode === 'me') {
+          // 自分宛: @メンション or カードメンバー
+          const hasMention = text.match(new RegExp(`@${myUsername}\\b`, 'i'));
+          const isCardMember = card.idMembers && card.idMembers.includes(myId);
+          if (authorId !== myId && (hasMention || isCardMember)) {
+            shouldShow = true;
+            reason = hasMention ? '@メンション' : 'カードメンバー';
+          }
+        } else {
+          // 全メンバー: 自分の投稿以外
+          if (authorId !== myId) {
+            shouldShow = true;
+            reason = '他メンバー投稿';
+          }
+        }
+
+        if (!shouldShow) continue;
+
+        // 対応済み判定（複数の経路で確認）
+        let respondedBy = []; // 対応の根拠を蓄積
+
+        // ① リアクション取得
+        let reactionFetchFailed = false;
+        try {
+          const reactions = await trelloFetch(`/actions/${comment.id}/reactions`);
+          if (reactions.some(r => r.idMember === myId)) {
+            respondedBy.push('リアクション済');
+          }
+        } catch (e) {
+          // 取得失敗時はその旨を記録（誤検出を避けるためスキップする方針）
+          reactionFetchFailed = true;
+          console.warn(`リアクション取得失敗 comment=${comment.id}:`, e.message);
+        }
+
+        // ② 返信（コメント後の自分のコメント）を検出
+        // 同じカードのコメント一覧から、このコメントより後に自分が書いたコメントがあれば「返信済」
+        const commentTimeMs = new Date(comment.date).getTime();
+        const myLaterComments = comments.filter(c =>
+          c.idMemberCreator === myId &&
+          new Date(c.date).getTime() > commentTimeMs
+        );
+        if (myLaterComments.length > 0) {
+          respondedBy.push(`返信済 (${myLaterComments.length}件)`);
+        }
+
+        // ③ 判定：何か対応していれば除外
+        if (respondedBy.length > 0) {
+          continue; // 対応済みなのでスキップ
+        }
+
+        // ④ リアクション取得が失敗した場合は、誤検出回避のため除外する（オプション）
+        // 必要に応じてここを変更可能
+        if (reactionFetchFailed) {
+          console.warn(`判定不能のためスキップ: ${card.name} - ${text.substring(0,30)}`);
+          continue;
+        }
+
+        // 未対応として記録
+        unreacted.push({
+          cardId: card.id,
+          cardName: card.name,
+          cardUrl: card.shortUrl,
+          boardName: card.boardName,
+          workspaceName: card.workspaceName,
+          commentId: comment.id,
+          commentText: text,
+          commentDate: comment.date,
+          commentAuthor: comment.memberCreator ? comment.memberCreator.fullName : '不明',
+          commentAuthorUsername: comment.memberCreator ? comment.memberCreator.username : '',
+          reason: reason
+        });
+      }
+    }
+
+    setProgress(`分析完了: 未リアクション ${unreacted.length}件を検出`, 100);
+
+    // 表示
+    renderResults(unreacted, myUsername);
+    hideProgress();
+
+  } catch (err) {
+    console.error(err);
+    showError(err.message);
+    hideProgress();
+  } finally {
+    runBtn.disabled = false;
+    runBtn.textContent = '🔄 ボード一覧を再読込';
+    const applyBtn = document.getElementById('apply-filter-btn');
+    applyBtn.disabled = false;
+    applyBtn.textContent = '▶️ フィルタ適用（スキャン実行）';
+  }
+}
+
+function renderResults(items, myUsername) {
+  // 経過時間で分類
+  const categorized = { urgent: [], warning: [], normal: [] };
+  items.forEach(item => {
+    const info = getElapsedInfo(item.commentDate);
+    item.elapsedInfo = info;
+    categorized[info.level].push(item);
+  });
+
+  // 各カテゴリ内で古い順にソート
+  ['urgent', 'warning', 'normal'].forEach(level => {
+    categorized[level].sort((a, b) => a.elapsedInfo.diffMs > b.elapsedInfo.diffMs ? -1 : 1);
+  });
+
+  // 統計
+  document.getElementById('stat-urgent').textContent = categorized.urgent.length;
+  document.getElementById('stat-warning').textContent = categorized.warning.length;
+  document.getElementById('stat-normal').textContent = categorized.normal.length;
+  document.getElementById('stat-total').textContent = items.length;
+  statsArea.style.display = 'grid';
+
+  // セクション表示
+  let html = '';
+  const sectionConfig = [
+    { level: 'urgent', title: '🔴 緊急（3日以上経過）', list: categorized.urgent },
+    { level: 'warning', title: '🟡 注意（1〜3日経過）', list: categorized.warning },
+    { level: 'normal', title: '🟢 通常（24時間以内）', list: categorized.normal }
+  ];
+
+  if (items.length === 0) {
+    resultArea.innerHTML = `<div class="empty-message">🎉 未リアクション・未返信のコメントは見つかりませんでした！</div>`;
+    return;
+  }
+
+  for (const sec of sectionConfig) {
+    if (sec.list.length === 0) continue;
+    html += `<div class="section ${sec.level}">`;
+    html += `<h2>${sec.title}（${sec.list.length}件）</h2>`;
+
+    for (const item of sec.list) {
+      html += `
+        <div class="card ${sec.level}">
+          <div class="card-header">
+            <div class="card-title">${escapeHtml(item.cardName)}</div>
+            <div>
+              <span class="card-board">${escapeHtml(item.workspaceName)} / ${escapeHtml(item.boardName)}</span>
+              <span class="elapsed-badge ${sec.level}">${item.elapsedInfo.label}</span>
+            </div>
+          </div>
+          <div class="comment">
+            <div class="comment-meta">
+              <span><span class="comment-author">${escapeHtml(item.commentAuthor)}</span> (@${escapeHtml(item.commentAuthorUsername)}) ・ ${item.reason}</span>
+              <span>${formatDateJP(item.commentDate)}</span>
+            </div>
+            <div class="comment-text">${highlightMentions(item.commentText, myUsername)}</div>
+          </div>
+          <div class="card-actions">
+            <a href="${escapeHtml(item.cardUrl)}" target="_blank" rel="noopener">🔗 カードを開く</a>
+          </div>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  }
+
+  resultArea.innerHTML = html;
+}
+
+// ========== イベント ==========
+runBtn.addEventListener('click', loadBoards);
+clearBtn.addEventListener('click', clearAll);
+
+// ログイン関連
+document.getElementById('login-btn').addEventListener('click', handleLogin);
+document.getElementById('logout-btn').addEventListener('click', handleLogout);
+document.getElementById('show-token').addEventListener('change', (e) => {
+  document.getElementById('login-token').type = e.target.checked ? 'text' : 'password';
+});
+// Enterキーでログイン
+['login-api-key', 'login-token'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleLogin();
+  });
+});
+
+// 起動時：保存された認証情報があれば自動ログイン
+tryLoginWithStoredCredentials();
+
+document.getElementById('apply-filter-btn').addEventListener('click', scan);
+
+// ========== クイックフィルタ・ドラッグ選択・Shift範囲選択 ==========
+
+// クイックフィルタの判定ロジック
+function classifyBoard(label) {
+  const wsName = label.dataset.workspace || '';
+  const bName = label.dataset.boardName || '';
+  // 業務案件ボード判定
+  const isBusinessCase = /業務案件/.test(bName);
+  // 個人名ボード判定（カタカナひらがな漢字の人名らしきもの。記号を含まないシンプルな2-5文字）
+  // 「メンバー名のみ」のボードは"姓 名"形式が多い
+  const isPersonal = /^[ぁ-んァ-ヶ一-龯]{1,4}\s+[ぁ-んァ-ヶ一-龯]{1,4}$/.test(bName);
+  // 協力企業判定
+  const isPartner = /協力企業/.test(wsName);
+  // 業務管理ワークスペース判定
+  const isWorkspaceBusiness = /業務管理/.test(wsName);
+  return { isBusinessCase, isPersonal, isPartner, isWorkspaceBusiness };
+}
+
+function applyQuickFilter(filterType) {
+  const labels = document.querySelectorAll('.board-checkbox-label');
+  labels.forEach(label => {
+    const cb = label.querySelector('input[type="checkbox"]');
+    if (!cb) return;
+    const c = classifyBoard(label);
+    switch (filterType) {
+      case 'all':
+        cb.checked = true; break;
+      case 'none':
+        cb.checked = false; break;
+      case 'invert':
+        cb.checked = !cb.checked; break;
+      case 'business-cases':
+        cb.checked = c.isBusinessCase; break;
+      case 'exclude-personal':
+        if (c.isPersonal) cb.checked = false; break;
+      case 'partners-only':
+        cb.checked = c.isPartner; break;
+      case 'workspace-business':
+        cb.checked = c.isWorkspaceBusiness; break;
+    }
+  });
+  updateSelectedCount();
+}
+
+// クイックフィルタボタンのイベント
+document.querySelectorAll('.quick-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    applyQuickFilter(btn.dataset.filter);
+  });
+});
+
+// 選択数を表示
+function updateSelectedCount() {
+  const all = document.querySelectorAll('#board-filter-checkboxes input[type="checkbox"]');
+  const checked = document.querySelectorAll('#board-filter-checkboxes input[type="checkbox"]:checked');
+  const countEl = document.getElementById('selected-count');
+  if (countEl) {
+    countEl.textContent = `（${checked.length} / ${all.length} ボード選択中）`;
+  }
+}
+
+// 個別チェックボックス変更時にカウント更新
+document.getElementById('board-filter-checkboxes').addEventListener('change', updateSelectedCount);
+
+// ===== ドラッグ選択機能 =====
+let isDragging = false;
+let dragStartCheckbox = null;
+let dragTargetState = null; // ドラッグ中に設定する状態（true=ON, false=OFF）
+let lastClickedCheckbox = null; // Shift+クリック用の最後のチェックボックス
+
+const filterContainer = document.getElementById('board-filter-checkboxes');
+
+filterContainer.addEventListener('mousedown', (e) => {
+  const label = e.target.closest('.board-checkbox-label');
+  if (!label) return;
+  const cb = label.querySelector('input[type="checkbox"]');
+  if (!cb) return;
+
+  // Shift+クリックの範囲選択
+  if (e.shiftKey && lastClickedCheckbox) {
+    e.preventDefault();
+    const allCbs = Array.from(filterContainer.querySelectorAll('input[type="checkbox"]'));
+    const startIdx = allCbs.indexOf(lastClickedCheckbox);
+    const endIdx = allCbs.indexOf(cb);
+    if (startIdx !== -1 && endIdx !== -1) {
+      const [from, to] = [Math.min(startIdx, endIdx), Math.max(startIdx, endIdx)];
+      const newState = !cb.checked;
+      for (let i = from; i <= to; i++) {
+        allCbs[i].checked = newState;
+      }
+      updateSelectedCount();
+    }
+    lastClickedCheckbox = cb;
+    return;
+  }
+
+  // ドラッグ選択開始
+  isDragging = true;
+  dragStartCheckbox = cb;
+  // クリックしたチェックボックスの「逆の状態」をドラッグ中の設定値にする
+  dragTargetState = !cb.checked;
+  cb.checked = dragTargetState;
+  label.classList.add('drag-hover');
+  lastClickedCheckbox = cb;
+  e.preventDefault(); // テキスト選択を防ぐ
+  updateSelectedCount();
+});
+
+filterContainer.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const label = e.target.closest('.board-checkbox-label');
+  if (!label) return;
+  const cb = label.querySelector('input[type="checkbox"]');
+  if (!cb) return;
+  if (cb.checked !== dragTargetState) {
+    cb.checked = dragTargetState;
+    updateSelectedCount();
+  }
+  label.classList.add('drag-hover');
+});
+
+// ドラッグ終了（マウスアップ時 or マウスがエリア外に出た時）
+function endDrag() {
+  if (!isDragging) return;
+  isDragging = false;
+  dragStartCheckbox = null;
+  dragTargetState = null;
+  // ハイライト解除
+  document.querySelectorAll('.board-checkbox-label.drag-hover').forEach(el => {
+    el.classList.remove('drag-hover');
+  });
+}
+
+document.addEventListener('mouseup', endDrag);
+document.addEventListener('mouseleave', endDrag);
+
+// チェックボックス自体のクリックでlastClickedを更新
+filterContainer.addEventListener('click', (e) => {
+  if (e.target.type === 'checkbox') {
+    lastClickedCheckbox = e.target;
+    updateSelectedCount();
+  }
+});
+
+// ========== タッチイベント対応（モバイル用） ==========
+// touchstart時の位置を記録（スクロールとドラッグ選択を区別するため）
+let touchStartX = 0;
+let touchStartY = 0;
+let touchDragMode = false; // true=ドラッグ選択中、false=スクロール中の可能性
+let touchDragTimeout = null;
+
+filterContainer.addEventListener('touchstart', (e) => {
+  const label = e.target.closest('.board-checkbox-label');
+  if (!label) return;
+  const cb = label.querySelector('input[type="checkbox"]');
+  if (!cb) return;
+
+  const touch = e.touches[0];
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+  touchDragMode = false;
+
+  // 300ms長押しでドラッグモード開始（短いタップは通常のクリック扱い）
+  touchDragTimeout = setTimeout(() => {
+    touchDragMode = true;
+    isDragging = true;
+    dragStartCheckbox = cb;
+    dragTargetState = !cb.checked;
+    cb.checked = dragTargetState;
+    label.classList.add('drag-hover');
+    lastClickedCheckbox = cb;
+    updateSelectedCount();
+    // 触覚フィードバック（対応端末のみ）
+    if (navigator.vibrate) navigator.vibrate(30);
+  }, 300);
+}, { passive: true });
+
+filterContainer.addEventListener('touchmove', (e) => {
+  if (!isDragging || !touchDragMode) {
+    // ドラッグモード開始前に動いた場合は通常スクロール扱い
+    if (touchDragTimeout) {
+      const touch = e.touches[0];
+      const dx = Math.abs(touch.clientX - touchStartX);
+      const dy = Math.abs(touch.clientY - touchStartY);
+      // 10px以上動いたらタイマーキャンセル（スクロール意図と判定）
+      if (dx > 10 || dy > 10) {
+        clearTimeout(touchDragTimeout);
+        touchDragTimeout = null;
+      }
+    }
+    return;
+  }
+
+  // ドラッグ選択モード中：通過したチェックボックスを切り替え
+  e.preventDefault(); // スクロール抑止
+  const touch = e.touches[0];
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (!el) return;
+  const label = el.closest('.board-checkbox-label');
+  if (!label) return;
+  const cb = label.querySelector('input[type="checkbox"]');
+  if (!cb) return;
+  if (cb.checked !== dragTargetState) {
+    cb.checked = dragTargetState;
+    updateSelectedCount();
+  }
+  label.classList.add('drag-hover');
+}, { passive: false });
+
+filterContainer.addEventListener('touchend', (e) => {
+  if (touchDragTimeout) {
+    clearTimeout(touchDragTimeout);
+    touchDragTimeout = null;
+  }
+  if (touchDragMode) {
+    e.preventDefault();
+    endDrag();
+    touchDragMode = false;
+  }
+}, { passive: false });
+
+filterContainer.addEventListener('touchcancel', () => {
+  if (touchDragTimeout) {
+    clearTimeout(touchDragTimeout);
+    touchDragTimeout = null;
+  }
+  if (touchDragMode) {
+    endDrag();
+    touchDragMode = false;
+  }
+});
+
+</script>
+
+</body>
+</html>
