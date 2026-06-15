@@ -6,13 +6,19 @@ on:
     # ※ GitHub Actions の cron は UTC。JST 8:30 月-金 = UTC 23:30 日-木
     - cron: '30 23 * * 0-4'
   
-  # 手動実行も可能（Actions タブから「Run workflow」ボタン）
+  # 手動実行（Actions タブから「Run workflow」ボタン）
   workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'テストモード（投稿せずプレビューのみログに出力）'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   notify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     
     steps:
       - name: Checkout
@@ -21,12 +27,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       
       - name: Run Trello notification script
         env:
           TRELLO_API_KEY: ${{ secrets.TRELLO_API_KEY }}
           TRELLO_TOKEN: ${{ secrets.TRELLO_TOKEN }}
-          NOTIFICATION_CARD_ID: ${{ secrets.NOTIFICATION_CARD_ID }}
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          TEST_MODE: ${{ inputs.test_mode }}
         run: node scripts/notify.js
