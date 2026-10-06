@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>デスクトップアプリで開く</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: "Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif;
+    background: #f4f6f8; color: #1f2933;
+  }
+  .card {
+    width: min(92vw, 520px); padding: 28px 24px; border-radius: 12px;
+    background: #ffffff; box-shadow: 0 2px 12px rgba(0, 0, 0, .08); text-align: center;
+  }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  p { font-size: 14px; line-height: 1.7; margin: 8px 0; word-break: break-all; }
+  .error { color: #c62828; font-weight: 600; }
+  .btn {
+    display: inline-block; margin: 14px 6px 0; padding: 10px 18px; border-radius: 8px;
+    font-size: 14px; text-decoration: none; background: #1b6ec2; color: #ffffff;
+  }
+  .btn.sub { background: transparent; color: #1b6ec2; border: 1px solid #1b6ec2; }
+  .hidden { display: none; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #14181d; color: #e6e9ec; }
+    .card { background: #1f252c; box-shadow: none; }
+    .error { color: #ff8a80; }
+    .btn.sub { color: #7fb7f0; border-color: #7fb7f0; }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1 id="title">デスクトップアプリで開いています…</h1>
+  <p id="message"></p>
+  <div id="actions" class="hidden">
+    <a id="launch" class="btn" href="#">アプリで開く</a>
+    <a id="web" class="btn sub" href="#" rel="noopener noreferrer">ブラウザで開く</a>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  // 対応アプリ（?app= の値 → Office URI スキーム）
+  var APPS = {
+    excel:      { scheme: 'ms-excel',      label: 'Excel' },
+    word:       { scheme: 'ms-word',       label: 'Word' },
+    powerpoint: { scheme: 'ms-powerpoint', label: 'PowerPoint' },
+    ppt:        { scheme: 'ms-powerpoint', label: 'PowerPoint' },
+    visio:      { scheme: 'ms-visio',      label: 'Visio' }
+  };
+
+  // 開くことを許可するホスト（自社テナントの SharePoint / OneDrive のみ）
+  var ALLOWED_HOSTS = [
+    'daisin2003.sharepoint.com',
+    'daisin2003-my.sharepoint.com'
+  ];
+
+  var titleEl = document.getElementById('title');
+  var messageEl = document.getElementById('message');
+  var actionsEl = document.getElementById('actions');
+  var launchEl = document.getElementById('launch');
+  var webEl = document.getElementById('web');
+
+  function showError(text) {
+    titleEl.textContent = '開けませんでした';
+    messageEl.textContent = text;
+    messageEl.className = 'error';
+    actionsEl.className = 'hidden';
+  }
+
+  // ?u= は URL エンコードなしでも受け取れるよう、クエリ文字列の「u=」以降をすべて値として扱う
+  // （そのため u は必ず最後のパラメータにする）
+  function readParams() {
+    var search = window.location.search.replace(/^\?/, '');
+    var result = { app: '', mode: '', u: '' };
+    var uIndex = -1;
+    if (search.indexOf('u=') === 0) {
+      uIndex = 0;
+    } else {
+      var pos = search.indexOf('&u=');
+      if (pos !== -1) { uIndex = pos + 1; }
+    }
+    var head = uIndex === -1 ? search : search.slice(0, uIndex);
+    var rawU = uIndex === -1 ? '' : search.slice(uIndex + 2);
+
+    head.split('&').forEach(function (pair) {
+      if (!pair) { return; }
+      var eq = pair.indexOf('=');
+      var key = eq === -1 ? pair : pair.slice(0, eq);
+      var value = eq === -1 ? '' : pair.slice(eq + 1);
+      try { value = decodeURIComponent(value); } catch (e) { /* そのまま使う */ }
+      if (key === 'app') { result.app = value.toLowerCase().trim(); }
+      if (key === 'mode') { result.mode = value.toLowerCase().trim(); }
+    });
+
+    if (/^https?%3A/i.test(rawU)) {
+      try { rawU = decodeURIComponent(rawU); } catch (e) { /* そのまま使う */ }
+    }
+    result.u = rawU.trim();
+    return result;
+  }
+
+  var params = readParams();
+
+  if (!params.app || !params.u) {
+    showError('パラメータ不正: ?app= と ?u= が必要です。');
+    return;
+  }
+
+  var app = Object.prototype.hasOwnProperty.call(APPS, params.app) ? APPS[params.app] : null;
+  if (!app) {
+    showError('未対応のアプリです: ' + params.app + '（excel / word / powerpoint / visio）');
+    return;
+  }
+
+  var target;
+  try {
+    target = new URL(params.u);
+  } catch (e) {
+    showError('URL の形式が正しくありません。');
+    return;
+  }
+
+  if (target.protocol !== 'https:' || ALLOWED_HOSTS.indexOf(target.hostname.toLowerCase()) === -1) {
+    showError('許可されていない URL です（社内 SharePoint / OneDrive のみ開けます）。');
+    return;
+  }
+
+  // ofe = 編集で開く / ofv = 閲覧で開く（?mode=view 指定時）
+  var command = params.mode === 'view' ? 'ofv' : 'ofe';
+  var launchUrl = app.scheme + ':' + command + '|u|' + target.href;
+
+  titleEl.textContent = app.label + ' で開いています…';
+  messageEl.textContent = 'ブラウザの確認ダイアログが出たら「開く」を選んでください。開かない場合は下のボタンを押してください。';
+  launchEl.textContent = app.label + ' アプリで開く';
+  launchEl.href = launchUrl;
+  webEl.href = target.href;
+  actionsEl.className = '';
+
+  window.location.href = launchUrl;
+})();
+</script>
+</body>
+</html>
