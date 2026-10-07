@@ -53,7 +53,10 @@
     word:       { scheme: 'ms-word',       label: 'Word' },
     powerpoint: { scheme: 'ms-powerpoint', label: 'PowerPoint' },
     ppt:        { scheme: 'ms-powerpoint', label: 'PowerPoint' },
-    visio:      { scheme: 'ms-visio',      label: 'Visio' }
+    visio:      { scheme: 'ms-visio',      label: 'Visio' },
+    // PDF には Office のような起動スキームがないため、ダウンロードさせて
+    // ブラウザの「この種類のファイルは常に開く」設定で PDF アプリに渡す
+    pdf:        { scheme: null,            label: 'PDF' }
   };
 
   // 開くことを許可するホスト（自社テナントの SharePoint / OneDrive のみ）
@@ -116,7 +119,7 @@
 
   var app = Object.prototype.hasOwnProperty.call(APPS, params.app) ? APPS[params.app] : null;
   if (!app) {
-    showError('未対応のアプリです: ' + params.app + '（excel / word / powerpoint / visio）');
+    showError('未対応のアプリです: ' + params.app + '（excel / word / powerpoint / visio / pdf）');
     return;
   }
 
@@ -133,13 +136,23 @@
     return;
   }
 
-  // ofe = 編集で開く / ofv = 閲覧で開く（?mode=view 指定時）
-  var command = params.mode === 'view' ? 'ofv' : 'ofe';
-  var launchUrl = app.scheme + ':' + command + '|u|' + target.href;
-
-  titleEl.textContent = app.label + ' で開いています…';
-  messageEl.textContent = 'ブラウザの確認ダイアログが出たら「開く」を選んでください。開かない場合は下のボタンを押してください。';
-  launchEl.textContent = app.label + ' アプリで開く';
+  var launchUrl;
+  if (app.scheme) {
+    // ofe = 編集で開く / ofv = 閲覧で開く（?mode=view 指定時）
+    var command = params.mode === 'view' ? 'ofv' : 'ofe';
+    launchUrl = app.scheme + ':' + command + '|u|' + target.href;
+    titleEl.textContent = app.label + ' で開いています…';
+    messageEl.textContent = 'ブラウザの確認ダイアログが出たら「開く」を選んでください。開かない場合は下のボタンを押してください。';
+    launchEl.textContent = app.label + ' アプリで開く';
+  } else {
+    // PDF: SharePoint の download=1 でダウンロードさせる
+    var dl = new URL(target.href);
+    dl.searchParams.set('download', '1');
+    launchUrl = dl.href;
+    titleEl.textContent = 'PDF をダウンロードしています…';
+    messageEl.textContent = 'ダウンロード後に PDF アプリで開きます。自動で開かない場合は、ダウンロード一覧の「…」から「この種類のファイルは常に開く」を有効にしてください。';
+    launchEl.textContent = 'PDF をダウンロード';
+  }
   launchEl.href = launchUrl;
   webEl.href = target.href;
   actionsEl.className = '';
