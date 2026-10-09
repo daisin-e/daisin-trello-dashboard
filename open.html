@@ -54,9 +54,10 @@
     powerpoint: { scheme: 'ms-powerpoint', label: 'PowerPoint' },
     ppt:        { scheme: 'ms-powerpoint', label: 'PowerPoint' },
     visio:      { scheme: 'ms-visio',      label: 'Visio' },
-    // PDF には Office のような起動スキームがないため、ダウンロードさせて
-    // ブラウザの「この種類のファイルは常に開く」設定で PDF アプリに渡す
-    pdf:        { scheme: null,            label: 'PDF' }
+    // PDF には Office のような起動スキームがないため、各 PC に入れた
+    // Daisin Open（daisin-open: プロトコル）経由で OneDrive 同期済みの
+    // ローカルファイルを既定アプリで直接開く（ダウンロードなし）
+    pdf:        { scheme: 'daisin-open',   label: 'PDF', local: true }
   };
 
   // 開くことを許可するホスト（自社テナントの SharePoint / OneDrive のみ）
@@ -137,24 +138,27 @@
   }
 
   var launchUrl;
-  if (app.scheme) {
+  if (app.local) {
+    // Daisin Open: daisin-open:<SharePoint URL> → PC 側で同期済みローカルファイルを開く
+    launchUrl = app.scheme + ':' + target.href;
+    titleEl.textContent = app.label + ' をデスクトップアプリで開いています…';
+    messageEl.textContent = '初回は「daisin-open を開きますか？」と出るので「常に許可」にチェックして「開く」を選んでください。何も起きない場合は Daisin Open が未インストールです（setup.cmd を実行）。';
+    launchEl.textContent = app.label + ' アプリで開く';
+    // フォールバック: ダウンロードして開く
+    var dl = new URL(target.href);
+    dl.searchParams.set('download', '1');
+    webEl.href = dl.href;
+    webEl.textContent = 'ダウンロードして開く';
+  } else {
     // ofe = 編集で開く / ofv = 閲覧で開く（?mode=view 指定時）
     var command = params.mode === 'view' ? 'ofv' : 'ofe';
     launchUrl = app.scheme + ':' + command + '|u|' + target.href;
     titleEl.textContent = app.label + ' で開いています…';
     messageEl.textContent = 'ブラウザの確認ダイアログが出たら「開く」を選んでください。開かない場合は下のボタンを押してください。';
     launchEl.textContent = app.label + ' アプリで開く';
-  } else {
-    // PDF: SharePoint の download=1 でダウンロードさせる
-    var dl = new URL(target.href);
-    dl.searchParams.set('download', '1');
-    launchUrl = dl.href;
-    titleEl.textContent = 'PDF をダウンロードしています…';
-    messageEl.textContent = 'ダウンロード後に PDF アプリで開きます。自動で開かない場合は、ダウンロード一覧の「…」から「この種類のファイルは常に開く」を有効にしてください。';
-    launchEl.textContent = 'PDF をダウンロード';
+    webEl.href = target.href;
   }
   launchEl.href = launchUrl;
-  webEl.href = target.href;
   actionsEl.className = '';
 
   window.location.href = launchUrl;
