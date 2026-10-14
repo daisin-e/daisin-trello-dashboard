@@ -29,7 +29,7 @@ Set-ItemProperty -Path "$k\DefaultIcon" -Name '(default)' -Value "$env:SystemRoo
 New-Item -Path "$k\shell\open\command" -Force | Out-Null
 Set-ItemProperty -Path "$k\shell\open\command" -Name '(default)' -Value $openCmd
 
-# 2) 右クリックメニュー「Trello 用リンクをコピー」
+# 2) 右クリックメニュー「Trello 用リンクをコピー」（[ファイル名](URL) 形式）
 $m = 'HKCU:\Software\Classes\*\shell\DaisinLink'
 New-Item -Path $m -Force | Out-Null
 Set-ItemProperty -Path $m -Name '(default)' -Value 'Trello 用リンクをコピー'
@@ -37,9 +37,17 @@ Set-ItemProperty -Path $m -Name 'Icon' -Value "$env:SystemRoot\System32\shell32.
 New-Item -Path "$m\command" -Force | Out-Null
 Set-ItemProperty -Path "$m\command" -Name '(default)' -Value $linkCmd
 
+# 3) 右クリックメニュー「Trello 用リンク（URLのみ）をコピー」
+$m2 = 'HKCU:\Software\Classes\*\shell\DaisinLinkUrl'
+New-Item -Path $m2 -Force | Out-Null
+Set-ItemProperty -Path $m2 -Name '(default)' -Value 'Trello 用リンク（URLのみ）をコピー'
+Set-ItemProperty -Path $m2 -Name 'Icon' -Value "$env:SystemRoot\System32\shell32.dll,134"
+New-Item -Path "$m2\command" -Force | Out-Null
+Set-ItemProperty -Path "$m2\command" -Name '(default)' -Value ($linkCmd + ' -Format url')
+
 Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.MessageBox]::Show(
   "Daisin Open のインストール／更新が完了しました。`n`n" +
-  "・OneDrive 内のファイルを右クリック →「Trello 用リンクをコピー」`n" +
+  "・OneDrive 内のファイルを Shift＋右クリック →「Trello 用リンクをコピー」`n" +
   "・Trello のリンクをクリックすると PC のアプリで直接開きます`n`n" +
   "保存先: $Dst", 'Daisin Open', 'OK', 'Information') | Out-Null
