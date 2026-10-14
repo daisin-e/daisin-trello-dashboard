@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Trello 用リンク作成</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center;
+    font-family: "Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif;
+    background: #f4f6f8; color: #1f2933; padding: 24px 16px;
+  }
+  .card {
+    width: min(100%, 640px); padding: 24px; border-radius: 12px;
+    background: #ffffff; box-shadow: 0 2px 12px rgba(0, 0, 0, .08);
+  }
+  h1 { font-size: 18px; margin: 0 0 6px; }
+  p { font-size: 13px; line-height: 1.7; margin: 6px 0; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 16px 0 6px; }
+  textarea, input[type=text] {
+    width: 100%; box-sizing: border-box; font-size: 13px; padding: 10px; border-radius: 8px;
+    border: 1px solid #c5ccd3; font-family: Consolas, monospace; background: #fff; color: inherit;
+  }
+  textarea { min-height: 72px; resize: vertical; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .btn {
+    padding: 10px 18px; border-radius: 8px; font-size: 14px; border: 0; cursor: pointer;
+    background: #1b6ec2; color: #fff;
+  }
+  .btn.sub { background: transparent; color: #1b6ec2; border: 1px solid #1b6ec2; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .status { font-size: 13px; }
+  .ok { color: #2e7d32; font-weight: 600; }
+  .err { color: #c62828; font-weight: 600; }
+  .hint { color: #5f6b7a; }
+  select { font-size: 13px; padding: 8px; border-radius: 8px; border: 1px solid #c5ccd3; background: #fff; color: inherit; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #14181d; color: #e6e9ec; }
+    .card { background: #1f252c; box-shadow: none; }
+    textarea, input[type=text], select { background: #14181d; border-color: #3a444f; }
+    .btn.sub { color: #7fb7f0; border-color: #7fb7f0; }
+    .ok { color: #81c784; } .err { color: #ff8a80; } .hint { color: #9aa7b5; }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Trello 用リンク作成</h1>
+  <p class="hint">SharePoint / OneDrive のファイル URL を貼ると、クリックで PC のアプリが直接開くリンクに変換します。</p>
+
+  <label for="src">1. ファイルの URL（Excel の「ファイル → 情報 → パスのコピー」など）</label>
+  <textarea id="src" placeholder="https://daisin2003-my.sharepoint.com/personal/.../Documents/大真フォルダ/.../ファイル.xlsx?web=1"></textarea>
+
+  <div class="row">
+    <span class="status">開くアプリ:</span>
+    <select id="app">
+      <option value="auto">自動判定（拡張子から）</option>
+      <option value="excel">Excel</option>
+      <option value="word">Word</option>
+      <option value="powerpoint">PowerPoint</option>
+      <option value="visio">Visio</option>
+      <option value="pdf">PDF</option>
+    </select>
+    <label style="margin:0; font-weight: 400;"><input type="checkbox" id="view"> 閲覧モードで開く（Office のみ）</label>
+  </div>
+
+  <label for="out">2. できあがったリンク</label>
+  <input type="text" id="out" readonly placeholder="ここに表示されます">
+  <div class="row">
+    <button class="btn" id="copy" disabled>リンクをコピー</button>
+    <button class="btn sub" id="test" disabled>試しに開く</button>
+    <span class="status" id="msg"></span>
+  </div>
+  <p class="hint" style="margin-top:14px">※ 「共有 → リンクのコピー」で出る <code>/:x:/g/personal/...</code> 形式の共有リンクは変換できません。「パスのコピー」の URL を使ってください。</p>
+</div>
+<script>
+(function () {
+  'use strict';
+  var OPEN = 'https://daisin-e.github.io/daisin-trello-dashboard/open.html';
+  var ALLOWED_HOSTS = ['daisin2003.sharepoint.com', 'daisin2003-my.sharepoint.com'];
+  var EXT = {
+    xlsx: 'excel', xlsm: 'excel', xls: 'excel', csv: 'excel',
+    docx: 'word', doc: 'word',
+    pptx: 'powerpoint', ppt: 'powerpoint',
+    vsdx: 'visio', vsd: 'visio',
+    pdf: 'pdf'
+  };
+  var src = document.getElementById('src');
+  var appSel = document.getElementById('app');
+  var view = document.getElementById('view');
+  var out = document.getElementById('out');
+  var copyBtn = document.getElementById('copy');
+  var testBtn = document.getElementById('test');
+  var msg = document.getElementById('msg');
+
+  function setMsg(text, cls) { msg.textContent = text; msg.className = 'status ' + (cls || ''); }
+
+  function build() {
+    out.value = ''; copyBtn.disabled = true; testBtn.disabled = true;
+    var raw = src.value.trim();
+    if (!raw) { setMsg(''); return; }
+    if (/\/:[a-z]:\/[gsr]\//i.test(raw)) {
+      setMsg('共有リンクは変換できません。「パスのコピー」の URL を貼ってください。', 'err'); return;
+    }
+    var u;
+    try { u = new URL(raw); } catch (e) { setMsg('URL の形式が正しくありません。', 'err'); return; }
+    if (u.protocol !== 'https:' || ALLOWED_HOSTS.indexOf(u.hostname.toLowerCase()) === -1) {
+      setMsg('社内の SharePoint / OneDrive の URL だけ変換できます。', 'err'); return;
+    }
+    // ?web=1 などの余計なクエリは除去（SharePoint の実パスは path だけで一意）
+    u.search = ''; u.hash = '';
+    var path = decodeURIComponent(u.pathname);
+    var m = path.match(/\.([a-z0-9]+)$/i);
+    var ext = m ? m[1].toLowerCase() : '';
+    var app = appSel.value;
+    if (app === 'auto') {
+      app = EXT[ext];
+      if (!app) { setMsg('拡張子 .' + ext + ' は自動判定できません。開くアプリを選んでください。', 'err'); return; }
+    }
+    // 日本語を含むパスは % エンコード済みの href を使う（Trello 等で途切れない）
+    var link = OPEN + '?app=' + app + (view.checked && app !== 'pdf' ? '&mode=view' : '') + '&u=' + u.href;
+    out.value = link; copyBtn.disabled = false; testBtn.disabled = false;
+    setMsg('変換しました（' + app + '）。', 'ok');
+  }
+
+  copyBtn.addEventListener('click', function () {
+    var done = function () { setMsg('コピーしました。Trello に貼り付けてください。', 'ok'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(out.value).then(done, function () { out.select(); document.execCommand('copy'); done(); });
+    } else { out.select(); document.execCommand('copy'); done(); }
+  });
+  testBtn.addEventListener('click', function () { window.open(out.value, '_blank', 'noopener'); });
+  src.addEventListener('input', build);
+  appSel.addEventListener('change', build);
+  view.addEventListener('change', build);
+  src.addEventListener('paste', function () { setTimeout(build, 0); });
+})();
+</script>
+</body>
+</html>
