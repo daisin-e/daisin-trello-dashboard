@@ -2,7 +2,7 @@
 # エクスプローラーの右クリック「Trello 用リンクをコピー」から呼ばれる。
 # OneDrive 同期フォルダ内のローカルファイルを、open.html 用のリンクに変換してクリップボードへ。
 
-param([string]$Path)
+param([string]$Path, [string]$Format = 'md')  # md = [ファイル名](URL) / url = URL のみ
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
@@ -58,9 +58,16 @@ try {
   $link = "$OpenPage`?app=$app&u=$fileUrl"
   Log "link: $link"
 
-  Set-Clipboard -Value $link
   $name = [IO.Path]::GetFileName($full)
-  Msg "コピーしました。Trello に貼り付けてください。`n`n$name`n（$app で開くリンク）"
+  if ($Format -eq 'url') {
+    $out = $link
+  } else {
+    # Trello の説明・コメントは Markdown 対応: [表示名](URL) で名前付きリンクになる
+    $safeName = $name -replace '[\[\]]', ' '
+    $out = "[$safeName]($link)"
+  }
+  Set-Clipboard -Value $out
+  Msg "コピーしました。Trello に貼り付けてください。`n`n$out"
   exit 0
 }
 catch {
