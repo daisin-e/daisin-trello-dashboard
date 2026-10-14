@@ -67,13 +67,18 @@
     <label style="margin:0; font-weight: 400;"><input type="checkbox" id="view"> 閲覧モードで開く（Office のみ）</label>
   </div>
 
-  <label for="out">2. できあがったリンク</label>
+  <label for="name">2. 表示名（Trello に出る文字。自動でファイル名が入ります）</label>
+  <input type="text" id="name" placeholder="例: 数量書.pdf">
+
+  <label for="out">3. できあがったリンク</label>
   <input type="text" id="out" readonly placeholder="ここに表示されます">
   <div class="row">
-    <button class="btn" id="copy" disabled>リンクをコピー</button>
+    <button class="btn" id="copyMd" disabled>名前付きリンクをコピー</button>
+    <button class="btn sub" id="copy" disabled>URL のみコピー</button>
     <button class="btn sub" id="test" disabled>試しに開く</button>
     <span class="status" id="msg"></span>
   </div>
+  <p class="hint">「名前付きリンク」は <code>[表示名](URL)</code> 形式で、Trello の説明・コメントに貼るとそのまま名前付きリンクになります。</p>
   <p class="hint" style="margin-top:14px">※ 「共有 → リンクのコピー」で出る <code>/:x:/g/personal/...</code> 形式の共有リンクは変換できません。「パスのコピー」の URL を使ってください。</p>
 </div>
 <script>
@@ -93,13 +98,16 @@
   var view = document.getElementById('view');
   var out = document.getElementById('out');
   var copyBtn = document.getElementById('copy');
+  var copyMdBtn = document.getElementById('copyMd');
+  var nameEl = document.getElementById('name');
+  var nameTouched = false;
   var testBtn = document.getElementById('test');
   var msg = document.getElementById('msg');
 
   function setMsg(text, cls) { msg.textContent = text; msg.className = 'status ' + (cls || ''); }
 
   function build() {
-    out.value = ''; copyBtn.disabled = true; testBtn.disabled = true;
+    out.value = ''; copyBtn.disabled = true; copyMdBtn.disabled = true; testBtn.disabled = true;
     var raw = src.value.trim();
     if (!raw) { setMsg(''); return; }
     if (/\/:[a-z]:\/[gsr]\//i.test(raw)) {
@@ -122,16 +130,27 @@
     }
     // 日本語を含むパスは % エンコード済みの href を使う（Trello 等で途切れない）
     var link = OPEN + '?app=' + app + (view.checked && app !== 'pdf' ? '&mode=view' : '') + '&u=' + u.href;
-    out.value = link; copyBtn.disabled = false; testBtn.disabled = false;
+    if (!nameTouched) { nameEl.value = path.split('/').pop(); }
+    out.value = link; copyBtn.disabled = false; copyMdBtn.disabled = false; testBtn.disabled = false;
     setMsg('変換しました（' + app + '）。', 'ok');
   }
 
-  copyBtn.addEventListener('click', function () {
+  function copyText(text) {
     var done = function () { setMsg('コピーしました。Trello に貼り付けてください。', 'ok'); };
+    var fallback = function () {
+      var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
+    };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(out.value).then(done, function () { out.select(); document.execCommand('copy'); done(); });
-    } else { out.select(); document.execCommand('copy'); done(); }
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else { fallback(); }
+  }
+  copyBtn.addEventListener('click', function () { copyText(out.value); });
+  copyMdBtn.addEventListener('click', function () {
+    var label = (nameEl.value.trim() || 'リンク').replace(/[\[\]]/g, ' ');
+    copyText('[' + label + '](' + out.value + ')');
   });
+  nameEl.addEventListener('input', function () { nameTouched = nameEl.value.trim() !== ''; });
   testBtn.addEventListener('click', function () { window.open(out.value, '_blank', 'noopener'); });
   src.addEventListener('input', build);
   appSel.addEventListener('change', build);
