@@ -1,0 +1,45 @@
+# Daisin Open - web installer / updater (per user, no admin)
+# 実行方法（Win+R または PowerShell）:
+#   powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://daisin-e.github.io/daisin-trello-dashboard/DaisinOpen/install.txt | iex"
+$ErrorActionPreference = 'Stop'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$Base = 'https://daisin-e.github.io/daisin-trello-dashboard/DaisinOpen'
+$Dst  = Join-Path $env:LOCALAPPDATA 'DaisinOpen'
+if (-not (Test-Path $Dst)) { New-Item -ItemType Directory -Path $Dst | Out-Null }
+
+foreach ($f in 'daisin-open.ps1', 'daisin-link.ps1') {
+  $resp = Invoke-WebRequest -Uri ("$Base/$f`?v=" + (Get-Date -Format yyyyMMddHHmmss)) -UseBasicParsing
+  $bytes = $resp.Content; if ($bytes -is [string]) { $bytes = [Text.Encoding]::UTF8.GetBytes($bytes) }
+  $text = (New-Object Text.UTF8Encoding $false).GetString($bytes).TrimStart([char]0xFEFF)
+  # Windows PowerShell 5.1 が日本語を正しく読めるよう UTF-8 BOM 付きで保存
+  [IO.File]::WriteAllText((Join-Path $Dst $f), $text, (New-Object Text.UTF8Encoding $true))
+}
+
+$ps = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$Dst\{0}`" `"%1`""
+$openCmd = $ps -f 'daisin-open.ps1'
+$linkCmd = $ps -f 'daisin-link.ps1'
+
+# 1) daisin-open: プロトコル（SharePoint のファイルをデスクトップアプリで開く）
+$k = 'HKCU:\Software\Classes\daisin-open'
+New-Item -Path $k -Force | Out-Null
+Set-ItemProperty -Path $k -Name '(default)' -Value 'URL:Daisin Open Protocol'
+Set-ItemProperty -Path $k -Name 'URL Protocol' -Value ''
+New-Item -Path "$k\DefaultIcon" -Force | Out-Null
+Set-ItemProperty -Path "$k\DefaultIcon" -Name '(default)' -Value "$env:SystemRoot\System32\shell32.dll,1"
+New-Item -Path "$k\shell\open\command" -Force | Out-Null
+Set-ItemProperty -Path "$k\shell\open\command" -Name '(default)' -Value $openCmd
+
+# 2) 右クリックメニュー「Trello 用リンクをコピー」
+$m = 'HKCU:\Software\Classes\*\shell\DaisinLink'
+New-Item -Path $m -Force | Out-Null
+Set-ItemProperty -Path $m -Name '(default)' -Value 'Trello 用リンクをコピー'
+Set-ItemProperty -Path $m -Name 'Icon' -Value "$env:SystemRoot\System32\shell32.dll,134"
+New-Item -Path "$m\command" -Force | Out-Null
+Set-ItemProperty -Path "$m\command" -Name '(default)' -Value $linkCmd
+
+Add-Type -AssemblyName System.Windows.Forms
+[System.Windows.Forms.MessageBox]::Show(
+  "Daisin Open のインストール／更新が完了しました。`n`n" +
+  "・OneDrive 内のファイルを右クリック →「Trello 用リンクをコピー」`n" +
+  "・Trello のリンクをクリックすると PC のアプリで直接開きます`n`n" +
+  "保存先: $Dst", 'Daisin Open', 'OK', 'Information') | Out-Null
