@@ -19,7 +19,7 @@ $ps = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Fi
 $openCmd = $ps -f 'daisin-open.ps1'
 $linkCmd = $ps -f 'daisin-link.ps1'
 
-# 1) daisin-open: プロトコル（SharePoint のファイルをデスクトップアプリで開く）
+# 1) daisin-open: プロトコル（SharePoint のファイル/フォルダをデスクトップアプリ/エクスプローラーで開く）
 $k = 'HKCU:\Software\Classes\daisin-open'
 New-Item -Path $k -Force | Out-Null
 Set-ItemProperty -Path $k -Name '(default)' -Value 'URL:Daisin Open Protocol'
@@ -29,7 +29,7 @@ Set-ItemProperty -Path "$k\DefaultIcon" -Name '(default)' -Value "$env:SystemRoo
 New-Item -Path "$k\shell\open\command" -Force | Out-Null
 Set-ItemProperty -Path "$k\shell\open\command" -Name '(default)' -Value $openCmd
 
-# 2) 右クリックメニュー「Trello 用リンクをコピー」（[ファイル名](URL) 形式）
+# 2) 右クリックメニュー「Trello 用リンクをコピー」（ファイル用）
 $m = 'HKCU:\Software\Classes\*\shell\DaisinLink'
 New-Item -Path $m -Force | Out-Null
 Set-ItemProperty -Path $m -Name '(default)' -Value 'Trello 用リンクをコピー'
@@ -37,7 +37,7 @@ Set-ItemProperty -Path $m -Name 'Icon' -Value "$env:SystemRoot\System32\shell32.
 New-Item -Path "$m\command" -Force | Out-Null
 Set-ItemProperty -Path "$m\command" -Name '(default)' -Value $linkCmd
 
-# 3) 右クリックメニュー「Trello 用リンク（URLのみ）をコピー」
+# 3) 右クリックメニュー「Trello 用リンク（URLのみ）をコピー」（ファイル用）
 $m2 = 'HKCU:\Software\Classes\*\shell\DaisinLinkUrl'
 New-Item -Path $m2 -Force | Out-Null
 Set-ItemProperty -Path $m2 -Name '(default)' -Value 'Trello 用リンク（URLのみ）をコピー'
@@ -45,9 +45,26 @@ Set-ItemProperty -Path $m2 -Name 'Icon' -Value "$env:SystemRoot\System32\shell32
 New-Item -Path "$m2\command" -Force | Out-Null
 Set-ItemProperty -Path "$m2\command" -Name '(default)' -Value ($linkCmd + ' -Format url')
 
+# ★ v2 追加: 右クリックメニュー「Trello 用リンクをコピー」（フォルダ用）
+$mF = 'HKCU:\Software\Classes\Directory\shell\DaisinLink'
+New-Item -Path $mF -Force | Out-Null
+Set-ItemProperty -Path $mF -Name '(default)' -Value 'Trello 用リンクをコピー'
+Set-ItemProperty -Path $mF -Name 'Icon' -Value "$env:SystemRoot\System32\shell32.dll,4"
+New-Item -Path "$mF\command" -Force | Out-Null
+Set-ItemProperty -Path "$mF\command" -Name '(default)' -Value $linkCmd
+
+# ★ v2 追加: 右クリックメニュー「Trello 用リンク（URLのみ）をコピー」（フォルダ用）
+$mFU = 'HKCU:\Software\Classes\Directory\shell\DaisinLinkUrl'
+New-Item -Path $mFU -Force | Out-Null
+Set-ItemProperty -Path $mFU -Name '(default)' -Value 'Trello 用リンク（URLのみ）をコピー'
+Set-ItemProperty -Path $mFU -Name 'Icon' -Value "$env:SystemRoot\System32\shell32.dll,4"
+New-Item -Path "$mFU\command" -Force | Out-Null
+Set-ItemProperty -Path "$mFU\command" -Name '(default)' -Value ($linkCmd + ' -Format url')
+
 Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.MessageBox]::Show(
-  "Daisin Open のインストール／更新が完了しました。`n`n" +
-  "・OneDrive 内のファイルを Shift＋右クリック →「Trello 用リンクをコピー」`n" +
-  "・Trello のリンクをクリックすると PC のアプリで直接開きます`n`n" +
-  "保存先: $Dst", 'Daisin Open', 'OK', 'Information') | Out-Null
+  "Daisin Open v2 のインストール／更新が完了しました。`n`n" +
+  "・OneDrive 内のファイル/フォルダを Shift＋右クリック →「Trello 用リンクをコピー」`n" +
+  "・Trello のリンクをクリックすると PC のアプリ/エクスプローラーで直接開きます`n`n" +
+  "★ v2 追加: フォルダのリンクも作れるようになりました`n`n" +
+  "保存先: $Dst", 'Daisin Open v2', 'OK', 'Information') | Out-Null
