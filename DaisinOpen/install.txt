@@ -61,10 +61,31 @@ Set-ItemProperty -Path $mFU -Name 'Icon' -Value "$env:SystemRoot\System32\shell3
 New-Item -Path "$mFU\command" -Force | Out-Null
 Set-ItemProperty -Path "$mFU\command" -Name '(default)' -Value ($linkCmd + ' -Format url')
 
-Add-Type -AssemblyName System.Windows.Forms
-[System.Windows.Forms.MessageBox]::Show(
-  "Daisin Open v2 のインストール／更新が完了しました。`n`n" +
-  "・OneDrive 内のファイル/フォルダを Shift＋右クリック →「Trello 用リンクをコピー」`n" +
-  "・Trello のリンクをクリックすると PC のアプリ/エクスプローラーで直接開きます`n`n" +
-  "★ v2 追加: フォルダのリンクも作れるようになりました`n`n" +
-  "保存先: $Dst", 'Daisin Open v2', 'OK', 'Information') | Out-Null
+# PowerShell 7 でも 5.1 でも確実に表示されるよう、CUI 出力 + 試行的に MessageBox
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Green
+Write-Host "  Daisin Open v2 インストール/更新 完了" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "・OneDrive 内のファイル/フォルダを Shift+右クリック →" -ForegroundColor White
+Write-Host "  「Trello 用リンクをコピー」" -ForegroundColor Yellow
+Write-Host "・Trello のリンクをクリックすると PC のアプリ/エクスプローラーで" -ForegroundColor White
+Write-Host "  直接開きます" -ForegroundColor White
+Write-Host ""
+Write-Host "★ v2 追加: フォルダのリンクも作れるようになりました" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "保存先: $Dst" -ForegroundColor DarkGray
+Write-Host ""
+
+# ダイアログも試す（失敗しても CUI 出力があるので問題なし）
+try {
+  Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+  [System.Windows.Forms.MessageBox]::Show(
+    "Daisin Open v2 のインストール／更新が完了しました。`n`n" +
+    "・OneDrive 内のファイル/フォルダを Shift＋右クリック →「Trello 用リンクをコピー」`n" +
+    "・Trello のリンクをクリックすると PC のアプリ/エクスプローラーで直接開きます`n`n" +
+    "★ v2 追加: フォルダのリンクも作れるようになりました`n`n" +
+    "保存先: $Dst", 'Daisin Open v2', 'OK', 'Information') | Out-Null
+} catch {
+  # PowerShell 7 等でダイアログが出せない環境でも CUI 出力で完結
+}
