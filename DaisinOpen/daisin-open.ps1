@@ -1,6 +1,7 @@
-# daisin-open.ps1
+# daisin-open.ps1 (v2: フォルダ対応版)
 # daisin-open: プロトコルで渡された SharePoint/OneDrive の URL を、
-# OneDrive 同期済みのローカルファイルに変換し、既定のアプリで開く。
+# OneDrive 同期済みのローカルファイル／フォルダに変換し、
+# ファイルは既定アプリ、フォルダはエクスプローラーで開く。
 # ダウンロードは行わない。見つからない場合はブラウザで開く。
 
 param([string]$Url)
@@ -39,8 +40,9 @@ try {
 
   # --- 2. "Documents/" 以降を相対パスとして取り出す ------------------------
   $m = [regex]::Match($webPath, '/(?:Documents|Shared Documents)/(.+)$')
-  if (-not $m.Success) { Msg "ファイルパスを判定できませんでした:`n$webPath"; exit 1 }
-  $rel   = $m.Groups[1].Value                 # 大真フォルダ/2）工事.../file.pdf
+  if (-not $m.Success) { Msg "パスを判定できませんでした:`n$webPath"; exit 1 }
+  $rel   = $m.Groups[1].Value                 # 大真フォルダ/2）工事.../file.pdf または .../案件フォルダ/...
+  $rel   = $rel.TrimEnd('/')                   # 末尾スラッシュ除去（フォルダURL対策）
   $parts = $rel -split '/'
   $top   = $parts[0]                          # 大真フォルダ
   $rest  = ($parts | Select-Object -Skip 1) -join '\'
@@ -81,7 +83,16 @@ try {
     $local = Join-Path $root $rest
     Log "local: $local"
     if (Test-Path $local) {
-      Start-Process -FilePath $local          # 既定のアプリ（PDF なら Acrobat 等）で開く
+      # ★ v2 変更点: フォルダ or ファイルを判定して処理分岐
+      if (Test-Path -LiteralPath $local -PathType Container) {
+        # フォルダ → エクスプローラーで開く
+        Log "open as folder (explorer): $local"
+        Start-Process -FilePath 'explorer.exe' -ArgumentList "`"$local`""
+      } else {
+        # ファイル → 既定アプリで開く
+        Log "open as file (default app): $local"
+        Start-Process -FilePath $local
+      }
       exit 0
     }
   }
@@ -89,7 +100,7 @@ try {
   # 見つからない → ブラウザで開く（フォールバック）
   Log "fallback to browser"
   Start-Process $uri.AbsoluteUri
-  Msg "OneDrive 同期フォルダ内にファイルが見つからなかったため、ブラウザで開きました。`n`n同期フォルダ「$top」が PC にあるか確認してください。"
+  Msg "OneDrive 同期フォルダ内にパスが見つからなかったため、ブラウザで開きました。`n`n同期フォルダ「$top」が PC にあるか確認してください。"
   exit 0
 }
 catch {

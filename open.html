@@ -57,15 +57,11 @@
     powerpoint: { scheme: 'ms-powerpoint', label: 'PowerPoint' },
     ppt:        { scheme: 'ms-powerpoint', label: 'PowerPoint' },
     visio:      { scheme: 'ms-visio',      label: 'Visio' },
-    // PDF には Office のような起動スキームがないため、各 PC に入れた
-    // Daisin Open（daisin-open: プロトコル）経由で OneDrive 同期済みの
-    // ローカルファイルを既定アプリで直接開く（ダウンロードなし）
-    pdf:        { scheme: 'daisin-open',   label: 'PDF', local: true }
+    // PDF と フォルダ(explorer) は、各 PC に入れた Daisin Open（daisin-open: プロトコル）経由で
+    // OneDrive 同期済みのローカルファイル/フォルダを既定アプリ/エクスプローラーで開く
+    pdf:        { scheme: 'daisin-open',   label: 'PDF',          local: true },
+    explorer:   { scheme: 'daisin-open',   label: 'エクスプローラー', local: true, folder: true }
   };
-
-  // フォルダを開く（?app=explorer&folder=<OneDrive の「大真」フォルダからの相対パス>）
-  // 各 PC に登録した daisin:// プロトコル経由でエクスプローラーを起動する
-  var EXPLORER = { scheme: 'daisin://open?folder=', label: 'エクスプローラー' };
 
   // 開くことを許可するホスト（自社テナントの SharePoint / OneDrive のみ）
   var ALLOWED_HOSTS = [
@@ -88,24 +84,11 @@
     actionsEl.className = 'hidden';
   }
 
-  // フォルダ名の安全確認（大真フォルダの外へ出るパス・Windows で使えない文字を拒否）
-  // ※最終的な制限は各 PC 側のハンドラーでも行う
-  function isSafeFolder(name) {
-    if (!name || name.length > 240) { return false; }
-    if (/[\x00-\x1f<>:"|?*]/.test(name)) { return false; }
-    if (/^[\\\/]/.test(name)) { return false; }
-    var parts = name.split(/[\\\/]/);
-    for (var i = 0; i < parts.length; i++) {
-      if (parts[i] === '..' || parts[i] === '.') { return false; }
-    }
-    return true;
-  }
-
   // ?u= は URL エンコードなしでも受け取れるよう、クエリ文字列の「u=」以降をすべて値として扱う
   // （そのため u は必ず最後のパラメータにする）
   function readParams() {
     var search = window.location.search.replace(/^\?/, '');
-    var result = { app: '', mode: '', folder: '', u: '' };
+    var result = { app: '', mode: '', u: '' };
     var uIndex = -1;
     if (search.indexOf('u=') === 0) {
       uIndex = 0;
@@ -124,7 +107,6 @@
       try { value = decodeURIComponent(value); } catch (e) { /* そのまま使う */ }
       if (key === 'app') { result.app = value.toLowerCase().trim(); }
       if (key === 'mode') { result.mode = value.toLowerCase().trim(); }
-      if (key === 'folder') { result.folder = value.trim(); }
     });
 
     if (/^https?%3A/i.test(rawU)) {
@@ -135,26 +117,6 @@
   }
 
   var params = readParams();
-
-  // explorer モード: daisin://open?folder=<フォルダ名> でエクスプローラーを起動
-  if (params.app === 'explorer') {
-    if (!isSafeFolder(params.folder)) {
-      showError('パラメータ不正: ?folder= に「大真」フォルダ内のフォルダ名を指定してください。');
-      return;
-    }
-    var folderUrl = EXPLORER.scheme + encodeURIComponent(params.folder);
-    titleEl.textContent = 'エクスプローラーで開いています…';
-    messageEl.textContent = params.folder;
-    messageEl.className = 'folder';
-    noteEl.textContent = '初回は「daisin を開きますか？」と出るので「常に許可」にチェックして「開く」を選んでください。何も起きない場合は、この PC で daisin:// の初期設定がまだ済んでいません。';
-    noteEl.className = 'note';
-    launchEl.textContent = EXPLORER.label + 'で開く';
-    launchEl.href = folderUrl;
-    webEl.className = 'btn sub hidden';
-    actionsEl.className = '';
-    window.location.href = folderUrl;
-    return;
-  }
 
   if (!params.app || !params.u) {
     showError('パラメータ不正: ?app= と ?u= が必要です。');
@@ -182,16 +144,24 @@
 
   var launchUrl;
   if (app.local) {
-    // Daisin Open: daisin-open:<SharePoint URL> → PC 側で同期済みローカルファイルを開く
+    // Daisin Open: daisin-open:<SharePoint URL> → PC 側で同期済みローカルファイル/フォルダを開く
     launchUrl = app.scheme + ':' + target.href;
-    titleEl.textContent = app.label + ' をデスクトップアプリで開いています…';
-    messageEl.textContent = '初回は「daisin-open を開きますか？」と出るので「常に許可」にチェックして「開く」を選んでください。何も起きない場合は Daisin Open が未インストールです（setup.cmd を実行）。';
-    launchEl.textContent = app.label + ' アプリで開く';
-    // フォールバック: ダウンロードして開く
-    var dl = new URL(target.href);
-    dl.searchParams.set('download', '1');
-    webEl.href = dl.href;
-    webEl.textContent = 'ダウンロードして開く';
+    titleEl.textContent = app.label + 'で開いています…';
+    if (app.folder) {
+      messageEl.textContent = '初回は「daisin-open を開きますか？」と出るので「常に許可」にチェックして「開く」を選んでください。何も起きない場合は Daisin Open が未インストール/未更新です（install を実行してください）。';
+      launchEl.textContent = app.label + 'で開く';
+      // フォルダのフォールバック: ブラウザで SharePoint フォルダを開く
+      webEl.href = target.href;
+      webEl.textContent = 'ブラウザで開く';
+    } else {
+      messageEl.textContent = '初回は「daisin-open を開きますか？」と出るので「常に許可」にチェックして「開く」を選んでください。何も起きない場合は Daisin Open が未インストールです（install を実行してください）。';
+      launchEl.textContent = app.label + ' アプリで開く';
+      // ファイルのフォールバック: ダウンロードして開く
+      var dl = new URL(target.href);
+      dl.searchParams.set('download', '1');
+      webEl.href = dl.href;
+      webEl.textContent = 'ダウンロードして開く';
+    }
   } else {
     // ofe = 編集で開く / ofv = 閲覧で開く（?mode=view 指定時）
     var command = params.mode === 'view' ? 'ofv' : 'ofe';
